@@ -1,0 +1,29 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Testing & QA reports
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.json
+htmlcov/
+quality-reports/
+.qa/
+
+# Temporary media downloads
+temp_downloads/
+*.part
+*.ytdl
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

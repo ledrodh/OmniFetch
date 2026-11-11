@@ -1,0 +1,94 @@
+name: OmniFetch CI
+
+on:
+  push:
+    branches: ["main", "master", "develop"]
+  pull_request:
+    branches: ["main", "master", "develop"]
+
+permissions:
+  contents: read
+
+jobs:
+  quality-and-tests:
+    name: "QA & Pytest (Python ${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install FFmpeg and FFprobe
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install production and development dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Ruff Lint
+        run: ruff check .
+
+      - name: Ruff Format Check
+        run: ruff format --check .
+
+      - name: Pyright Static Type Check
+        run: pyright
+
+      - name: Run Unit & E2E Tests with Independent Line (>=90%) and Branch (>=90%) Coverage Gates
+        run: |
+          pytest --cov=core --cov=utils --cov=app --cov-branch --cov-report=term-missing --cov-report=json:coverage.json --cov-fail-under=90
+          python -c "import json; d = json.load(open('coverage.json'))['totals']; line_pct = d['covered_lines'] / d['num_statements'] * 100; br_pct = d['covered_branches'] / d['num_branches'] * 100; print(f'Lines: {line_pct:.1f}%, Branches: {br_pct:.1f}%'); assert line_pct >= 90.0 and br_pct >= 90.0, f'Coverage gate failed: line={line_pct:.1f}%, branch={br_pct:.1f}%'"
+
+  docker-smoke-test:
+    name: "Docker Build & Runtime Smoke Test"
+    runs-on: ubuntu-latest
+    needs: quality-and-tests
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build OmniFetch Docker image
+        run: docker build -t omnifetch:ci-test .
+
+      - name: Verify non-root UID 1000, FFmpeg/FFprobe binaries and temp directory write access
+        run: |
+          docker run --rm omnifetch:ci-test python -c "
+          import os, shutil
+          from utils.diagnostics import run_startup_diagnostics
+          assert os.getuid() == 1000, f'Expected UID 1000, got {os.getuid()}'
+          assert shutil.which('ffmpeg') is not None, 'ffmpeg missing'
+          assert shutil.which('ffprobe') is not None, 'ffprobe missing'
+          report = run_startup_diagnostics()
+          assert report.all_passed, f'Startup diagnostics failed: {report.failed_checks}'
+          "
+
+      - name: Start container and verify Streamlit /_stcore/health endpoint
+        run: |
+          docker run -d --name omnifetch-smoke -p 127.0.0.1:8501:8501 omnifetch:ci-test
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8501/_stcore/health | grep -q "ok"; then
+              echo "Streamlit healthcheck passed on attempt $i"
+              docker rm -f omnifetch-smoke
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs omnifetch-smoke
+          docker rm -f omnifetch-smoke
+          exit 1

@@ -1,0 +1,53 @@
+[project]
+name = "omnifetch"
+version = "1.1.0"
+description = "Local-First tool to identify, extract, trim, and remux public media via yt-dlp and FFmpeg."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = [
+    "yt-dlp>=2025.1.15",
+    "streamlit>=1.42.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.9.0",
+    "pyright>=1.1.390",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+markers = [
+    "integration: integration tests with local binaries or servers",
+    "e2e: end-to-end pipeline tests",
+    "slow: slow test cases",
+    "ui: Streamlit UI tests",
+    "ui_smoke: Streamlit UI smoke tests",
+    "preflight: preflight checks",
+    "preflight_basic: basic preflight checks",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+ignore = ["E501", "S603", "S607"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "S105", "S106", "S108"]
+
+[tool.pyright]
+include = ["core", "utils", "tests", "app.py"]
+pythonVersion = "3.10"
+typeCheckingMode = "standard"
+
+[tool.coverage.run]
+source = ["core", "utils", "app"]
+branch = true

@@ -1,0 +1,4 @@
+# Production runtime dependencies only (synchronized with pyproject.toml and constraints.txt)
+-c constraints.txt
+yt-dlp>=2025.1.15
+streamlit>=1.42.0
