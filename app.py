@@ -464,6 +464,13 @@ def _render_diagnostics_panel(
             st.info(f"How to fix: `{chk.remediation}`")
 
 
+def _format_extraction_mode(mode: DownloadMode) -> str:
+    """Format extraction mode radio option cleanly."""
+    if mode == DownloadMode.VIDEO:
+        return "Video + Audio (Original Profile / Remux)"
+    return "Audio-Only (Original / MP3)"
+
+
 def _format_audio_language_cell(fmt: FormatOption) -> str:
     """Format the audio language column for the stream selection table."""
     if fmt.audio_language and fmt.is_original_audio:
@@ -658,9 +665,7 @@ def _render_single_media_workspace(
         mode_label = st.radio(
             "Extraction Mode",
             options=[DownloadMode.VIDEO, DownloadMode.AUDIO_ONLY],
-            format_func=lambda m: "Video + Audio (Original Profile / Remux)"
-            if m == DownloadMode.VIDEO
-            else "Audio-Only (Original / MP3)",
+            format_func=_format_extraction_mode,
             horizontal=True,
             index=0 if state.get("download_mode") == DownloadMode.VIDEO else 1,
         )
