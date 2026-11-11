@@ -11,6 +11,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+from yt_dlp.YoutubeDL import YoutubeDL
 
 from core.models import ErrorCategory, OperationalLimits
 from utils.error_handler import InvalidURLError, ResourceLimitExceededError
@@ -164,8 +165,7 @@ class TestURLValidationAndAntiSSRF:
 
 class TestGuardedDNSConcurrencyAndSafeYoutubeDL:
     """
-    Valida os 5 cenarios exigidos na auditoria para o Guardiao DNS concorrente
-    e a interceptacao de transporte em SafeYoutubeDL.
+    Validate concurrent DNS Guard scenarios and SafeYoutubeDL transport-layer SSRF checks.
     """
 
     def test_urlopen_blocks_ssrf_before_network_call(self) -> None:
@@ -178,7 +178,7 @@ class TestGuardedDNSConcurrencyAndSafeYoutubeDL:
         fake_response.url = "http://127.0.0.1:8080/internal-admin"
 
         with (
-            patch("yt_dlp.YoutubeDL.YoutubeDL.urlopen", return_value=fake_response),
+            patch.object(YoutubeDL, "urlopen", return_value=fake_response),
             SafeYoutubeDL({"quiet": True}, auto_init=False, resolve_dns=False) as ydl,
         ):
             with pytest.raises(InvalidURLError):
@@ -191,14 +191,14 @@ class TestGuardedDNSConcurrencyAndSafeYoutubeDL:
         req_obj.url = "https://93.184.216.34/initial"
 
         with (
-            patch("yt_dlp.YoutubeDL.YoutubeDL.urlopen", return_value=fake_response),
+            patch.object(YoutubeDL, "urlopen", return_value=fake_response),
             SafeYoutubeDL({"quiet": True}, auto_init=False, resolve_dns=False) as ydl,
         ):
             resp = ydl.urlopen(req_obj)
             assert resp is fake_response
 
     def test_guarded_dns_blocks_dns_rebinding_on_second_resolution(self) -> None:
-        """Simula DNS rebinding: 1a chamada retorna IP publico, 2a chamada (na conexao) retorna 127.0.0.1."""
+        """Simulate DNS rebinding: 1st call returns public IP, 2nd call (socket connect) returns 127.0.0.1."""
         call_count = 0
 
         def _rebinding_addrinfo(
@@ -216,7 +216,7 @@ class TestGuardedDNSConcurrencyAndSafeYoutubeDL:
 
         with (
             patch("socket.getaddrinfo", side_effect=_rebinding_addrinfo),
-            patch("yt_dlp.YoutubeDL.YoutubeDL.urlopen", side_effect=_fake_super_urlopen),
+            patch.object(YoutubeDL, "urlopen", side_effect=_fake_super_urlopen),
             SafeYoutubeDL({"quiet": True}, auto_init=False, resolve_dns=True) as ydl,
         ):
             with pytest.raises(InvalidURLError):
@@ -386,7 +386,7 @@ class TestGuardedDNSConcurrencyAndSafeYoutubeDL:
 
         with (
             patch("socket.getaddrinfo", _fragment_resolver),
-            patch("yt_dlp.YoutubeDL.YoutubeDL.urlopen", side_effect=_fake_super_urlopen),
+            patch.object(YoutubeDL, "urlopen", side_effect=_fake_super_urlopen),
             SafeYoutubeDL({"quiet": True}, auto_init=False, resolve_dns=True) as ydl,
         ):
             assert ydl.params.get("concurrent_fragment_downloads") == 1
