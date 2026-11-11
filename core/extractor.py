@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from core.format_selector import build_format_options, infer_original_language
@@ -120,7 +121,9 @@ def get_info(
             )
             raise mapped from exc
 
-    info = _extract_primary_entry(sanitized_dict if isinstance(sanitized_dict, dict) else None)
+    info = _extract_primary_entry(
+        dict(sanitized_dict) if isinstance(sanitized_dict, Mapping) else None
+    )
     raw_formats_list = [f for f in (info.get("formats") or []) if isinstance(f, dict)]
 
     # Validate all extracted page, manifest, stream, and fragment URLs against SSRF

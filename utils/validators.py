@@ -380,8 +380,10 @@ class SafeYoutubeDL(YoutubeDL):
             response = super().urlopen(req)
 
         final_url = getattr(response, "url", None)
-        if final_url is None and hasattr(response, "geturl"):
-            final_url = response.geturl()
+        if final_url is None:
+            geturl_fn = getattr(response, "geturl", None)
+            if callable(geturl_fn):
+                final_url = geturl_fn()
         if isinstance(final_url, str) and final_url:
             validate_url(final_url, resolve_dns=self._resolve_dns)
 
